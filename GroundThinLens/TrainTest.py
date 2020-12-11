@@ -2,18 +2,22 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-import Elements
-import Maps
-from Models import F0D0Model, SIS18_Lattice_minimal
+import ThinLens.Elements as Elements
+import ThinLens.Maps as Maps
+from ThinLens.Models import F0D0Model, SIS18_Cell_minimal, SIS18_DoubleCell_minimal, SIS18_DoubleCell_minimal_identical, \
+    SIS18_Lattice_minimal
 
 import matplotlib.pyplot as plt
-import Plot as PlotTrajectory
+
+import tools.madX
+import tools.plot
 
 # general
 torch.set_printoptions(precision=4, sci_mode=False)
 
 dim = 4
-slices = 4
+slices = 10
+quadSliceMultiplicity = 1
 dtype = torch.double
 outputPerElement = True
 
@@ -21,24 +25,30 @@ outputPerElement = True
 # model = F0D0Model(k1=0.3, slices=slices, dim=dim, dtype=dtype)
 # perturbedModel = F0D0Model(k1=0.2, dim=dim, slices=slices, dtype=dtype)
 
-k1d = -4.78047e-01
-model = SIS18_Lattice_minimal(k1d=k1d, dim=dim, slices=slices, dtype=dtype)
-perturbedModel = SIS18_Lattice_minimal(k1d=0.95*k1d, dim=dim, slices=slices, dtype=dtype)
+Lattice = SIS18_Lattice_minimal
+model = Lattice(dim=dim, slices=slices, quadSliceMultiplicity=quadSliceMultiplicity, dtype=dtype)
+
+k1f = 3.39177e-01
+k1d = -5.26301e-01
+perturbedModel = Lattice(k1f=k1f, k1d=k1d, dim=dim, slices=slices, quadSliceMultiplicity=quadSliceMultiplicity,
+                         dtype=dtype)
 
 model.requires_grad_(False)
 perturbedModel.requires_grad_(False)
 
 # train set
-bunch = torch.tensor([[1e-3, 2e-3, 1e-3, 0], [-1e-3,1e-3,0,1e-3]], dtype=dtype)
+bunch = torch.tensor([[1e-3, 2e-3, 1e-3, 0], [-1e-3, 1e-3, 0, 1e-3]], dtype=dtype)
 label = perturbedModel(bunch, outputPerElement=outputPerElement)
 
+# initial tunes
+print("initial model tune from Mad-X: {}".format(tools.madX.tune(model.madX())))
 
 # plot initial trajectories
 fig, axes = plt.subplots(3, sharex=True)
-PlotTrajectory.plotTrajectories(axes[0], PlotTrajectory.track(model, bunch, 1), model)
+tools.plot.trajectories(axes[0], tools.plot.track(model, bunch, 1), model)
 axes[0].set_ylabel("ideal")
 
-PlotTrajectory.plotTrajectories(axes[1], PlotTrajectory.track(perturbedModel, bunch, 1), perturbedModel)
+tools.plot.trajectories(axes[1], tools.plot.track(perturbedModel, bunch, 1), perturbedModel)
 axes[1].set_ylabel("perturbed")
 
 # test symplecticity
@@ -60,7 +70,8 @@ optimizer = optim.Adam(model.parameters(), lr=1e-4)
 criterion = nn.MSELoss()
 
 # train loop
-for epoch in range(100):
+epochs = int(2e2)
+for epoch in range(epochs):
     optimizer.zero_grad()
 
     out = model(bunch, outputPerElement=outputPerElement)
@@ -72,9 +83,8 @@ for epoch in range(100):
     if epoch % 20 == 19:
         print(loss.item())
 
-
 # plot final trajectories
-PlotTrajectory.plotTrajectories(axes[2], PlotTrajectory.track(model, bunch, 1), model)
+tools.plot.trajectories(axes[2], tools.plot.track(model, bunch, 1), model)
 axes[2].set_ylabel("trained")
 
 axes[2].set_xlabel("pos / m")
@@ -107,3 +117,5 @@ print("determinant after training: {}".format(torch.det(model.rMatrix())))
 # print tunes
 print("perturbed model tunes: {}".format(perturbedModel.getTunes()))
 print("trained model tunes: {}".format(model.getTunes()))
+print("perturbed model tunes from Mad-X: {}".format(tools.madX.tune(perturbedModel.madX())))
+print("trained model tunes from Mad-X: {}".format(tools.madX.tune(model.madX())))

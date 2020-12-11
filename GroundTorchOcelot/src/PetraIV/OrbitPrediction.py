@@ -57,10 +57,10 @@ xRef = torch.zeros((1, dim), dtype=dtype)
 
 # plot initial trajectories
 fig, axes = plt.subplots(3, sharex=True)
-PlotTrajectory.plotTrajectories(axes[0], PlotTrajectory.track(model, xRef, 1), lattice)
+PlotTrajectory.trajectories(axes[0], PlotTrajectory.track(model, xRef, 1), lattice)
 axes[0].set_ylabel("ideal")
 
-PlotTrajectory.plotTrajectories(axes[1], PlotTrajectory.track(perturbedModel, xRef, 1), lattice)
+PlotTrajectory.trajectories(axes[1], PlotTrajectory.track(perturbedModel, xRef, 1), lattice)
 axes[1].set_ylabel("perturbed")
 
 # optimization setup
@@ -86,7 +86,7 @@ for epoch in range(100):
         print("loss: {}".format(loss.item()))
 
 # plot final trajectory
-PlotTrajectory.plotTrajectories(axes[2], PlotTrajectory.track(model, xRef, 1), lattice)
+PlotTrajectory.trajectories(axes[2], PlotTrajectory.track(model, xRef, 1), lattice)
 axes[2].set_xlabel("pos / m")
 axes[2].set_ylabel("trained")
 

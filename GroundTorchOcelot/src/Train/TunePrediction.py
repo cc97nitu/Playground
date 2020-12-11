@@ -5,18 +5,15 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 
-import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data
 
 from OcelotMinimal.cpbd import elements
 
-import Simulation.Elements
-from Simulation.Lattice import SIS18_Lattice, SIS18_Lattice_minimal
-from Simulation.Models import LinearModel
-import PlotTrajectory
-from Tune import getTuneChromaticity
+from TorchOcelot.Lattice import SIS18_Lattice, SIS18_Lattice_minimal
+from TorchOcelot.Models import LinearModel
+import tools.plot
 
 # specify device and dtype
 dtype = torch.float32
@@ -48,7 +45,7 @@ perturbedModel = perturbedModel.to(device)
 perturbedModel.requires_grad_(False)
 
 # load bunch
-bunch = np.loadtxt("../../res/bunch_6d_n=1e5.txt.gz")
+bunch = np.loadtxt("../../../res/bunch_6d_n=1e5.txt.gz")
 bunch = torch.as_tensor(bunch, dtype=dtype)[:20,:dim]
 bunch = bunch - bunch.permute(1, 0).mean(dim=1)  # set bunch centroid to 0 for each dim
 bunch = bunch.to(device)
@@ -64,11 +61,11 @@ print("initial tunes: ideal={}, perturbed={}".format(model.getTunes(), perturbed
 fig, axes = plt.subplots(3, sharex=True)
 
 # PlotTrajectory.plotBeamSigma(axes[0], PlotTrajectory.track(model, bunch, 1), lattice)
-PlotTrajectory.plotTrajectories(axes[0], PlotTrajectory.track(model, bunch, 1), lattice)
+tools.plot.trajectories(axes[0], tools.plot.track(model, bunch, 1), lattice)
 axes[0].set_ylabel("before")
 
 # PlotTrajectory.plotBeamSigma(axes[1], PlotTrajectory.track(perturbedModel, bunch, 1), perturbedLattice)
-PlotTrajectory.plotTrajectories(axes[1], PlotTrajectory.track(perturbedModel, bunch, 1), perturbedLattice)
+tools.plot.trajectories(axes[1], tools.plot.track(perturbedModel, bunch, 1), perturbedLattice)
 axes[1].set_ylabel("perturbed")
 
 # build training set from perturbed model
@@ -126,7 +123,7 @@ print("final loss: {}, final regularization {}".format(criterion(model(bunch, ou
 
 # plot envelope of trained model
 # PlotTrajectory.plotBeamSigma(axes[2], PlotTrajectory.track(model, bunch.to(device), 1), lattice)
-PlotTrajectory.plotTrajectories(axes[2], PlotTrajectory.track(model, bunch.to(device), 1), lattice)
+tools.plot.trajectories(axes[2], tools.plot.track(model, bunch.to(device), 1), lattice)
 axes[2].set_ylabel("after")
 axes[2].set_xlabel("pos / m")
 
