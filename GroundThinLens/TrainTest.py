@@ -4,118 +4,185 @@ import torch.optim as optim
 
 import ThinLens.Elements as Elements
 import ThinLens.Maps as Maps
-from ThinLens.Models import F0D0Model, SIS18_Cell_minimal, SIS18_DoubleCell_minimal, SIS18_DoubleCell_minimal_identical, \
-    SIS18_Lattice_minimal
+from ThinLens.Models import F0D0Model, SIS18_Cell_minimal, SIS18_Cell, \
+    SIS18_Lattice_minimal, SIS18_Lattice
 
 import matplotlib.pyplot as plt
+import cpymad.madx
 
 import tools.madX
 import tools.plot
 
-# general
-torch.set_printoptions(precision=4, sci_mode=False)
 
-dim = 4
-slices = 10
-quadSliceMultiplicity = 1
-dtype = torch.double
-outputPerElement = True
+def trainLoop(model, criterion, optimizer, epochs: int):
+    # train loop
 
-# set up models
-# model = F0D0Model(k1=0.3, slices=slices, dim=dim, dtype=dtype)
-# perturbedModel = F0D0Model(k1=0.2, dim=dim, slices=slices, dtype=dtype)
+    for epoch in range(epochs):
+        optimizer.zero_grad()
 
-Lattice = SIS18_Lattice_minimal
-model = Lattice(dim=dim, slices=slices, quadSliceMultiplicity=quadSliceMultiplicity, dtype=dtype)
+        out = model(bunch, outputPerElement=outputPerElement, outputAtBPM=outputAtBPM)
 
-k1f = 3.39177e-01
-k1d = -5.26301e-01
-perturbedModel = Lattice(k1f=k1f, k1d=k1d, dim=dim, slices=slices, quadSliceMultiplicity=quadSliceMultiplicity,
-                         dtype=dtype)
+        # loss = criterion(out, label)  # full phase-space
+        loss = criterion(out[:, [0, 2], :], label[:, [0, 2], :])  # only x-, y-plane
 
-model.requires_grad_(False)
-perturbedModel.requires_grad_(False)
+        loss.backward()
+        optimizer.step()
 
-# train set
-bunch = torch.tensor([[1e-3, 2e-3, 1e-3, 0], [-1e-3, 1e-3, 0, 1e-3]], dtype=dtype)
-label = perturbedModel(bunch, outputPerElement=outputPerElement)
+        if epoch % 20 == 19:
+            print(loss.item())
 
-# initial tunes
-print("initial model tune from Mad-X: {}".format(tools.madX.tune(model.madX())))
+    return
 
-# plot initial trajectories
-fig, axes = plt.subplots(3, sharex=True)
-tools.plot.trajectories(axes[0], tools.plot.track(model, bunch, 1), model)
-axes[0].set_ylabel("ideal")
 
-tools.plot.trajectories(axes[1], tools.plot.track(perturbedModel, bunch, 1), perturbedModel)
-axes[1].set_ylabel("perturbed")
+def trainPerElement(model, criterion, optimizer, epochs: int):
+    if outputPerElement:
+        mapCount = 0
+        for element in model.elements:
+            mapCount += 1
+    else:
+        mapCount = 0
+        for element in model.elements:
+            if type(element) is Elements.Monitor:
+                mapCount += 1
 
-# test symplecticity
-sym = torch.tensor([[0, 1, 0, 0], [-1, 0, 0, 0], [0, 0, 0, 1], [0, 0, -1, 0]], dtype=dtype)
+    print("iterating over {} positions".format(mapCount))
+    print("output shape {}".format(model(bunch, outputPerElement=outputPerElement, outputAtBPM=outputAtBPM)
+                                   .shape))
+    for m in range(mapCount):
+        print("position {}/{}".format(m, mapCount))
 
-rMatrix = model.rMatrix()
-res = torch.matmul(rMatrix.transpose(1, 0), torch.matmul(sym, rMatrix)) - sym
-print("sym penalty before training: {}".format(torch.norm(res)))
+        # train loop
+        for epoch in range(epochs):
+            optimizer.zero_grad()
 
-# activate gradients on kick maps
-for m in model.modules():
-    if type(m) is Elements.Quadrupole:
-        for mod in m.modules():
-            if type(mod) is Maps.QuadKick:
-                mod.requires_grad_(True)
+            out = model(bunch, outputPerElement=outputPerElement, outputAtBPM=outputAtBPM)
 
-# set up optimizer
-optimizer = optim.Adam(model.parameters(), lr=1e-4)
-criterion = nn.MSELoss()
+            loss = criterion(out[:, [0, 2], :m + 1], label[:, [0, 2], :m + 1])  # only x-, y-plane
 
-# train loop
-epochs = int(2e2)
-for epoch in range(epochs):
-    optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-    out = model(bunch, outputPerElement=outputPerElement)
-    loss = criterion(out, label)
+            if epoch % 10 == 9:
+                print(loss.item())
 
-    loss.backward()
-    optimizer.step()
+    return
 
-    if epoch % 20 == 19:
-        print(loss.item())
 
-# plot final trajectories
-tools.plot.trajectories(axes[2], tools.plot.track(model, bunch, 1), model)
-axes[2].set_ylabel("trained")
+if __name__ == "__main__":
+    # general
+    torch.set_printoptions(precision=4, sci_mode=False)
 
-axes[2].set_xlabel("pos / m")
+    dim = 4
+    slices = 10
+    quadSliceMultiplicity = 1
+    dtype = torch.double
+    outputPerElement = False  # exceeds outputAtBPM
+    outputAtBPM = True
 
-plt.show()
-plt.close()
+    # set up models
+    # model = F0D0Model(k1=0.3, slices=slices, dim=dim, dtype=dtype)
+    # perturbedModel = F0D0Model(k1=0.2, dim=dim, slices=slices, dtype=dtype)
 
-# test symplecticity
-sym = torch.tensor([[0, 1, 0, 0], [-1, 0, 0, 0], [0, 0, 0, 1], [0, 0, -1, 0]], dtype=dtype)
+    Lattice = SIS18_Lattice
+    model = Lattice(dim=dim, slices=slices, quadSliceMultiplicity=quadSliceMultiplicity, dtype=dtype)
 
-rMatrix = model.rMatrix()
-res = lambda x: torch.matmul(x.transpose(1, 0), torch.matmul(sym, x)) - sym
+    k1f = 3.29482e-01
+    k1d = -4.73005e-01
+    perturbedModel = Lattice(k1f=k1f, k1d=k1d, dim=dim, slices=slices, quadSliceMultiplicity=quadSliceMultiplicity,
+                             dtype=dtype)
 
-print("sym penalty after training: {}".format(torch.norm(res(rMatrix))))
+    model.requires_grad_(False)
+    perturbedModel.requires_grad_(False)
 
-print("transport matrix after training:")
-print(model.rMatrix())
+    # train set
+    bunch = torch.tensor([[1e-3, 2e-3, 1e-3, 0], [-1e-3, 1e-3, 0, 1e-3]], dtype=dtype)
+    label = perturbedModel(bunch, outputPerElement=outputPerElement, outputAtBPM=outputAtBPM)
 
-print("determinant after training: {}".format(torch.det(model.rMatrix())))
-# # look at maps
-# print("trained model:")
-# quad = model.elements[1]
-# print(quad.rMatrix())
-# # for m in quad.maps:
-# #     print(m.rMatrix())
-#
-# print("perturbed model first quad:")
-# print(perturbedModel.elements[1].rMatrix())
+    # initial tunes
+    print("initial model tune from Mad-X: {}".format(tools.madX.tune(model.madX())))
 
-# print tunes
-print("perturbed model tunes: {}".format(perturbedModel.getTunes()))
-print("trained model tunes: {}".format(model.getTunes()))
-print("perturbed model tunes from Mad-X: {}".format(tools.madX.tune(perturbedModel.madX())))
-print("trained model tunes from Mad-X: {}".format(tools.madX.tune(model.madX())))
+    # plot initial trajectories
+    figTrajectories, axesTrajectories = plt.subplots(3, sharex=True)
+    tools.plot.trajectories(axesTrajectories[0], tools.plot.track(model, bunch, 1), model)
+    axesTrajectories[0].set_ylabel("ideal")
+
+    tools.plot.trajectories(axesTrajectories[1], tools.plot.track(perturbedModel, bunch, 1), perturbedModel)
+    axesTrajectories[1].set_ylabel("perturbed")
+
+    # plot inital beta
+    figBeta, axesBeta = plt.subplots(3, sharex=True)
+    tools.plot.betaMadX(axesBeta[0], model.madX(), )
+    axesBeta[0].set_ylabel("ideal")
+
+    tools.plot.betaMadX(axesBeta[1], perturbedModel.madX(), )
+    axesBeta[1].set_ylabel("perturbed")
+
+    # test symplecticity
+    sym = torch.tensor([[0, 1, 0, 0], [-1, 0, 0, 0], [0, 0, 0, 1], [0, 0, -1, 0]], dtype=dtype)
+
+    rMatrix = model.rMatrix()
+    res = torch.matmul(rMatrix.transpose(1, 0), torch.matmul(sym, rMatrix)) - sym
+    print("sym penalty before training: {}".format(torch.norm(res)))
+
+    # activate gradients on kick maps
+    for m in model.modules():
+        if type(m) is Elements.Quadrupole:
+            for mod in m.modules():
+                if type(mod) is Maps.QuadKick:
+                    mod.requires_grad_(True)
+
+    # set up optimizer
+    optimizer = optim.Adam(model.parameters(), lr=1e-4)
+    criterion = nn.MSELoss()
+
+    # call train loop
+    # trainLoop(model, criterion, optimizer, int(5e2))
+    trainPerElement(model, criterion, optimizer, int(25))
+
+    # plot final trajectories
+    tools.plot.trajectories(axesTrajectories[2], tools.plot.track(model, bunch, 1), model)
+    axesTrajectories[2].set_ylabel("trained")
+
+    axesTrajectories[2].set_xlabel("pos / m")
+
+    figTrajectories.show()
+
+    # plot final beta
+    try:
+        tools.plot.betaMadX(axesBeta[2], model.madX())
+    except cpymad.madx.TwissFailed:
+        print("twiss failed for trained model")
+        axesBeta[2].plot(model.endPositions, torch.zeros(len(model.endPositions)))
+
+    axesBeta[2].set_ylabel("trained")
+    axesBeta[2].set_xlabel("pos / m")
+
+    figBeta.show()
+
+    # test symplecticity
+    sym = torch.tensor([[0, 1, 0, 0], [-1, 0, 0, 0], [0, 0, 0, 1], [0, 0, -1, 0]], dtype=dtype)
+
+    rMatrix = model.rMatrix()
+    res = lambda x: torch.matmul(x.transpose(1, 0), torch.matmul(sym, x)) - sym
+
+    print("sym penalty after training: {}".format(torch.norm(res(rMatrix))))
+
+    print("transport matrix after training:")
+    print(model.rMatrix())
+
+    print("determinant after training: {}".format(torch.det(model.rMatrix())))
+    # # look at maps
+    # print("trained model:")
+    # quad = model.elements[1]
+    # print(quad.rMatrix())
+    # # for m in quad.maps:
+    # #     print(m.rMatrix())
+    #
+    # print("perturbed model first quad:")
+    # print(perturbedModel.elements[1].rMatrix())
+
+    # print tunes
+    print("perturbed model tunes: {}".format(perturbedModel.getTunes()))
+    print("trained model tunes: {}".format(model.getTunes()))
+    print("perturbed model tunes from Mad-X: {}".format(tools.madX.tune(perturbedModel.madX())))
+    print("trained model tunes from Mad-X: {}".format(tools.madX.tune(model.madX())))

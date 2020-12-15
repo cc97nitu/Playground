@@ -1,6 +1,9 @@
 import time
 
 import torch
+import matplotlib.pyplot as plt
+
+from madX import twissTable
 
 
 def track(model, bunch, turns: int):
@@ -27,7 +30,7 @@ def track(model, bunch, turns: int):
     return trackResults
 
 
-def trajectories(ax, trackResults, lattice):
+def trajectories(ax: plt.axes, trackResults, lattice):
     """Plot individual trajectories."""
     pos = [lattice.endPositions[i % len(lattice.endPositions)] + i // len(lattice.endPositions) * lattice.totalLen
            for i in range(trackResults.size(2))]
@@ -39,7 +42,7 @@ def trajectories(ax, trackResults, lattice):
     return
 
 
-def beamCentroid(ax, trackResults, lattice):
+def beamCentroid(ax: plt.axes, trackResults, lattice):
     """Plot beam centroid."""
     pos = [lattice.endPositions[i % len(lattice.endPositions)] + i // len(lattice.endPositions) * lattice.totalLen
            for i in range(trackResults.size(2))]
@@ -51,7 +54,7 @@ def beamCentroid(ax, trackResults, lattice):
     return
 
 
-def beamSigma(ax, trackResults, lattice):
+def beamSigma(ax: plt.axes, trackResults, lattice):
     """Plot beam size as standard deviation of position."""
     pos = [lattice.endPositions[i % len(lattice.endPositions)] + i // len(lattice.endPositions) * lattice.totalLen
            for i in range(trackResults.size(2))]
@@ -64,3 +67,14 @@ def beamSigma(ax, trackResults, lattice):
     # plt.close()
     ax.plot(pos, beamSigma[0].to("cpu").numpy())
     return
+
+
+def betaMadX(ax: plt.axes, sequence: str):
+    # get twiss table from Mad-X
+    twiss = twissTable(sequence, )
+
+    # plot
+    ax.plot(twiss.s, twiss.betx, label="betx")
+    ax.plot(twiss.s, twiss.bety, label="bety")
+
+    return ax
