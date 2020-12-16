@@ -8,6 +8,7 @@ from ThinLens.Models import F0D0Model, SIS18_Cell_minimal, SIS18_Cell, \
     SIS18_Lattice_minimal, SIS18_Lattice
 
 import matplotlib.pyplot as plt
+import time
 import cpymad.madx
 
 import tools.madX
@@ -132,12 +133,15 @@ if __name__ == "__main__":
                     mod.requires_grad_(True)
 
     # set up optimizer
-    optimizer = optim.Adam(model.parameters(), lr=1e-4)
+    optimizer = optim.SGD(model.parameters(), lr=1e-3)
     criterion = nn.MSELoss()
 
     # call train loop
-    # trainLoop(model, criterion, optimizer, int(5e2))
-    trainPerElement(model, criterion, optimizer, int(25))
+    t0 = time.time()
+    trainLoop(model, criterion, optimizer, int(5e2))
+    # trainPerElement(model, criterion, optimizer, int(25))
+
+    print("training completed within {:.2f}s".format(time.time() - t0))
 
     # plot final trajectories
     tools.plot.trajectories(axesTrajectories[2], tools.plot.track(model, bunch, 1), model)

@@ -16,6 +16,8 @@ from TorchOcelot.Models import LinearModel
 import tools.plot
 
 # specify device and dtype
+torch.set_printoptions(precision=3, sci_mode=False)
+
 dtype = torch.float32
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device = torch.device("cpu")
@@ -29,6 +31,9 @@ model = LinearModel(lattice, dim, dtype)
 model = model.to(device)
 model.setTrainable("quadrupoles")
 
+# store one-turn map before training
+idealOneTurnMap = model.oneTurnMap()
+
 # get index of first quad
 for i in range(len(lattice.sequence)):
     if type(lattice.sequence[i]) is elements.Quadrupole:
@@ -37,7 +42,7 @@ for i in range(len(lattice.sequence)):
 # create model of perturbed accelerator
 perturbedLattice = SIS18_Lattice()
 
-perturbedLattice.sequence[idxFirstQuad].k1 *= 0.9
+perturbedLattice.sequence[idxFirstQuad].k1 *= 0.98
 perturbedLattice.update_transfer_maps()
 
 perturbedModel = LinearModel(perturbedLattice, dim, dtype)
@@ -85,13 +90,13 @@ trainLoader = torch.utils.data.DataLoader(trainSet, batch_size=100,
 # optimization setup
 criterion = nn.MSELoss()
 # optimizer = optim.SGD(model.parameters(), lr=0.0001, momentum=0.9)
-optimizer = optim.Adam(model.parameters(), lr=0.001)
+optimizer = optim.Adam(model.parameters(), lr=5e-3)
 
 # train loop
 print("initial loss: {}, initial regularization {}".format(criterion(model(bunch, outputPerElement=outputPerElement, outputAtBPM=outputAtBPM), bunchLabels), model.symplecticRegularization()))
 
 t0 = time.time()
-for epoch in range(2000):
+for epoch in range(500):
     for i, data in enumerate(trainLoader):
         # inputs, labels = data
         inputs, labels = data[0].to(device), data[1].to(device)
@@ -138,5 +143,6 @@ plt.close()
 # print tune obtained from phase advance
 print("final tunes: {}".format(model.getTunes()))
 
-# tunes = getTuneChromaticity(model.to("cpu"), 200, dtype)
-# print(tunes)
+# show one-turn map
+print("difference to one-turn map")
+print(idealOneTurnMap - model.oneTurnMap())
