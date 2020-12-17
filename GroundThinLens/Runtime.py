@@ -7,14 +7,14 @@ from ThinLens.Models import SIS18_Lattice_minimal
 
 
 # set up model
-device = torch.device("cpu")
+device = torch.device("cuda")
 dtype = torch.float32
 
 model = SIS18_Lattice_minimal(slices=4, dtype=dtype).to(device)
 
 # load bunch
 print("loading bunch")
-bunch = np.loadtxt("../res/bunch_6d_n=1e5.txt.gz")
+bunch = np.loadtxt("../res/bunch_6d_n=1e6.txt.gz")
 bunch = torch.as_tensor(bunch, dtype=dtype)[:,:4]
 bunch = bunch.to(device)
 

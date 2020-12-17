@@ -26,7 +26,7 @@ print("running on {}".format(device))
 # create model of SIS18
 dim = 6
 
-lattice = SIS18_Lattice()
+lattice = SIS18_Lattice_minimal(k1f=3.29482e-01, k1d=-4.73005e-01)
 model = LinearModel(lattice, dim, dtype)
 model = model.to(device)
 model.setTrainable("quadrupoles")
@@ -40,7 +40,7 @@ for i in range(len(lattice.sequence)):
         idxFirstQuad = i
 
 # create model of perturbed accelerator
-perturbedLattice = SIS18_Lattice()
+perturbedLattice = SIS18_Lattice_minimal(k1f=3.29482e-01, k1d=-4.73005e-01)
 
 perturbedLattice.sequence[idxFirstQuad].k1 *= 0.98
 perturbedLattice.update_transfer_maps()
@@ -74,7 +74,6 @@ tools.plot.trajectories(axes[1], tools.plot.track(perturbedModel, bunch, 1), per
 axes[1].set_ylabel("perturbed")
 
 # build training set from perturbed model
-outputPerElement = False  # model output shall contain phase space after each element, overwrites outputAtBPM
 outputAtBPM = True
 
 with torch.no_grad():
@@ -96,7 +95,7 @@ optimizer = optim.Adam(model.parameters(), lr=5e-3)
 print("initial loss: {}, initial regularization {}".format(criterion(model(bunch, outputPerElement=outputPerElement, outputAtBPM=outputAtBPM), bunchLabels), model.symplecticRegularization()))
 
 t0 = time.time()
-for epoch in range(500):
+for epoch in range(2500):
     for i, data in enumerate(trainLoader):
         # inputs, labels = data
         inputs, labels = data[0].to(device), data[1].to(device)
@@ -133,7 +132,7 @@ axes[2].set_ylabel("after")
 axes[2].set_xlabel("pos / m")
 
 
-# show plot
+# show plot2
 axes[0].set_ylim(axes[1].get_ylim())
 axes[2].set_ylim(axes[1].get_ylim())
 
