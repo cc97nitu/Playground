@@ -14,7 +14,7 @@ class Beam(object):
         self.mass = mass  # GeV
 
         self.gamma = self.energy / self.mass
-        self.momentum = math.sqrt(self.energy ** 2 - self.mass ** 2)  # GeV/c
+        self.momentum = torch.sqrt(torch.tensor(self.energy) ** 2 - torch.tensor(self.mass) ** 2).item()  # GeV/c
 
         self.beta = self.momentum / (self.gamma * self.mass)
 
@@ -53,15 +53,46 @@ class Beam(object):
         y = preliminaryBunch[:,2]
         yp = preliminaryBunch[:,3]
         sigma = preliminaryBunch[:,4]
+        energy = preliminaryBunch[:,5]
 
-        self.bunch = torch.stack([x, xp, y, yp, sigma, pSigma, delta, invDelta, velocityRatio]).t()
+        self.bunch = torch.stack([x, xp, y, yp, sigma, pSigma, delta, invDelta, velocityRatio,]).t()
+
+        # check if nan occurs in bunch <- can be if sige is too large and hence energy is smaller than rest energy
+        assert not self.bunch.isnan().any()
+
         return
 
+    def fromDelta(self, delta: torch.tensor):
+        # calculate properties
+        invDelta = 1 / (delta + 1)
+
+        momentum = self.momentum * delta + self.momentum
+        energy = torch.sqrt(momentum**2 + self.mass**2)
+        gamma = energy / self.mass
+        beta = momentum / (gamma * self.mass)
+
+        pSigma = (energy - self.energy) / (self.beta * self.momentum)
+        velocityRatio = self.beta / beta
+
+
+        # select and update particles
+        bunch = self.bunch[:len(delta)].t()
+        bunch = torch.stack([*bunch[:5], pSigma, delta, invDelta, velocityRatio])
+        return bunch.t()
+
+
+
+
+
 if __name__ == "__main__":
-    torch.set_printoptions(precision=1)
+    torch.set_printoptions(precision=4)
 
-    beam = Beam(mass=18.798, energy=19.0, exn=1.258e-6, eyn=2.005e-6, sigt=0.01, sige=0.005, particles=int(1e6))
+    beam = Beam(mass=18.798, energy=19.0, exn=1.258e-6, eyn=2.005e-6, sigt=0.01, sige=0.005, particles=int(1e1))
 
-    print(beam.beta)
-    print(beam.bunch.isnan().any())
+    # update bunch
+    delta = beam.bunch[:, 6]
+    print(delta)
+
+    newBunch = beam.fromDelta(delta * 2)
+    print(beam.bunch - newBunch)
 

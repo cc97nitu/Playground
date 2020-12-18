@@ -5,17 +5,26 @@ import torch
 
 from ThinLens.Models import SIS18_Lattice_minimal
 
+from SampleBeam import Beam
+
 
 # set up model
-device = torch.device("cuda")
+device = torch.device("cpu")
 dtype = torch.float32
+dim = 4
 
-model = SIS18_Lattice_minimal(slices=4, dtype=dtype).to(device)
+model = SIS18_Lattice_minimal(dim=dim, slices=4, dtype=dtype).to(device)
 
 # load bunch
 print("loading bunch")
-bunch = np.loadtxt("../res/bunch_6d_n=1e6.txt.gz")
-bunch = torch.as_tensor(bunch, dtype=dtype)[:,:4]
+if dim == 4:
+    bunch = np.loadtxt("../res/bunch_6d_n=1e5.txt.gz")
+    bunch = torch.as_tensor(bunch, dtype=dtype)[:2000,:4]
+else:
+    beam = Beam(mass=18.798, energy=19.0, exn=1.258e-6, eyn=2.005e-6, sigt=0.01, sige=0.005, particles=int(2e3))
+    bunch = beam.bunch
+    print(bunch.shape)
+
 bunch = bunch.to(device)
 
 # track
