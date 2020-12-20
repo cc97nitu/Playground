@@ -32,6 +32,8 @@ def track(model, bunch, turns: int):
 
 def trajectories(ax: plt.axes, trackResults, lattice):
     """Plot individual trajectories."""
+    trackResults = trackResults.to("cpu")
+
     pos = [lattice.endPositions[i % len(lattice.endPositions)] + i // len(lattice.endPositions) * lattice.totalLen
            for i in range(trackResults.size(2))]
 
@@ -44,6 +46,8 @@ def trajectories(ax: plt.axes, trackResults, lattice):
 
 def beamCentroid(ax: plt.axes, trackResults, lattice):
     """Plot beam centroid."""
+    trackResults = trackResults.to("cpu")
+
     pos = [lattice.endPositions[i % len(lattice.endPositions)] + i // len(lattice.endPositions) * lattice.totalLen
            for i in range(trackResults.size(2))]
 
@@ -56,6 +60,8 @@ def beamCentroid(ax: plt.axes, trackResults, lattice):
 
 def beamSigma(ax: plt.axes, trackResults, lattice):
     """Plot beam size as standard deviation of position."""
+    trackResults = trackResults.to("cpu")
+
     pos = [lattice.endPositions[i % len(lattice.endPositions)] + i // len(lattice.endPositions) * lattice.totalLen
            for i in range(trackResults.size(2))]
 

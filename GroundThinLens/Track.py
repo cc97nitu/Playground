@@ -1,6 +1,6 @@
 import torch
 
-from ThinLens.Models import SIS18_Cell_minimal, F0D0Model, RBendLine
+from ThinLens.Models import SIS18_Lattice, SIS18_Cell_minimal, F0D0Model, RBendLine
 
 from SampleBeam import Beam
 
@@ -8,11 +8,12 @@ from SampleBeam import Beam
 # general settings
 torch.set_printoptions(precision=4, sci_mode=False)
 dtype = torch.double
-dim = 4
+dim = 6
 
 # setup model
-# model = RBendLine(angle=0.1, e1=0, e2=0.0, dim=dim, dtype=dtype)
-model = SIS18_Cell_minimal(dim=dim, dtype=dtype)
+# model = F0D0Model(k1=0.3, dtype=dtype)
+# model = RBendLine(angle=0.1, e1=0.1, e2=-0.1, dim=dim, dtype=dtype)
+model = SIS18_Lattice(dim=dim, dtype=dtype)
 
 # particles
 if dim == 4:
@@ -24,10 +25,13 @@ else:
     # bunch.unsqueeze_(0)
 
 print("initial bunch")
-print(bunch)
+print(bunch[:,3])
 
 # track
-res = model(bunch, outputPerElement=True)
+for turn in range(1000):
+    bunch = model(bunch, outputPerElement=False)
+
+res = model(bunch, outputPerElement=False)
 
 print("final bunch")
-print(res)
+print(res[:,0,])

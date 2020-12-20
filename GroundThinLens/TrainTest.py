@@ -11,8 +11,10 @@ import matplotlib.pyplot as plt
 import time
 import cpymad.madx
 
+from SampleBeam import Beam
 import tools.madX
 import tools.plot
+import tools.tuneFFT
 
 
 def trainLoop(model, criterion, optimizer, epochs: int):
@@ -71,12 +73,13 @@ def trainPerElement(model, criterion, optimizer, epochs: int):
 
 if __name__ == "__main__":
     # general
-    torch.set_printoptions(precision=4, sci_mode=False)
+    # torch.set_printoptions(precision=4, sci_mode=False)
 
-    dim = 4
+    dim = 6
     slices = 10
     quadSliceMultiplicity = 1
     dtype = torch.double
+    device = torch.device("cpu")
     outputPerElement = False  # exceeds outputAtBPM
     outputAtBPM = True
 
@@ -85,22 +88,38 @@ if __name__ == "__main__":
     # perturbedModel = F0D0Model(k1=0.2, dim=dim, slices=slices, dtype=dtype)
 
     Lattice = SIS18_Lattice
-    model = Lattice(dim=dim, slices=slices, quadSliceMultiplicity=quadSliceMultiplicity, dtype=dtype)
+    model = Lattice(dim=dim, slices=slices, quadSliceMultiplicity=quadSliceMultiplicity, dtype=dtype, cellsIdentical=True).to(device)
 
     k1f = 3.29482e-01
     k1d = -4.73005e-01
     perturbedModel = Lattice(k1f=k1f, k1d=k1d, dim=dim, slices=slices, quadSliceMultiplicity=quadSliceMultiplicity,
-                             dtype=dtype)
+                             dtype=dtype).to(device)
 
     model.requires_grad_(False)
     perturbedModel.requires_grad_(False)
 
     # train set
-    bunch = torch.tensor([[1e-3, 2e-3, 1e-3, 0], [-1e-3, 1e-3, 0, 1e-3]], dtype=dtype)
-    label = perturbedModel(bunch, outputPerElement=outputPerElement, outputAtBPM=outputAtBPM)
+    if dim == 4:
+        bunch = torch.tensor([[1e-3, 2e-3, 1e-3, 0], [-1e-3, 1e-3, 0, 1e-3]], dtype=dtype).to(device)
+        label = perturbedModel(bunch, outputPerElement=outputPerElement, outputAtBPM=outputAtBPM).to(device)
+    elif dim == 6:
+        beam = Beam(mass=18.798, energy=19.0, exn=1.258e-6, eyn=2.005e-6, sigt=0.01, sige=0.000, particles=50)
+        bunch = beam.bunch[:1].to(device)
+        label = perturbedModel(bunch, outputPerElement=outputPerElement, outputAtBPM=outputAtBPM).to(device)
+        print("bunch:")
+        print(bunch)
 
     # initial tunes
     print("initial model tune from Mad-X: {}".format(tools.madX.tune(model.madX())))
+
+    # fft
+    if dim == 6:
+        print("performing fft of initial models")
+        fft = tools.tuneFFT.getTuneChromaticity(model, turns=200, dtype=dtype, beam=beam)
+        print("ideal model", fft)
+        fft = tools.tuneFFT.getTuneChromaticity(perturbedModel, turns=200, dtype=dtype, beam=beam)
+        print("perturbed model", fft)
+
 
     # plot initial trajectories
     figTrajectories, axesTrajectories = plt.subplots(3, sharex=True)
@@ -119,7 +138,10 @@ if __name__ == "__main__":
     axesBeta[1].set_ylabel("perturbed")
 
     # test symplecticity
-    sym = torch.tensor([[0, 1, 0, 0], [-1, 0, 0, 0], [0, 0, 0, 1], [0, 0, -1, 0]], dtype=dtype)
+    if dim == 4:
+        sym = torch.tensor([[0, 1, 0, 0], [-1, 0, 0, 0], [0, 0, 0, 1], [0, 0, -1, 0]], dtype=dtype)
+    else:
+        sym = torch.tensor([[0, 1, 0, 0, 0, 0], [-1, 0, 0, 0, 0, 0], [0, 0, 0, 1, 0, 0], [0, 0, -1, 0, 0, 0], [0, 0, 0, 0, 0, 1], [0, 0, 0, 0, -1, 0]], dtype=dtype)
 
     rMatrix = model.rMatrix()
     res = torch.matmul(rMatrix.transpose(1, 0), torch.matmul(sym, rMatrix)) - sym
@@ -133,12 +155,15 @@ if __name__ == "__main__":
                     mod.requires_grad_(True)
 
     # set up optimizer
-    optimizer = optim.SGD(model.parameters(), lr=1e-3)
+    # optimizer = optim.Adam(model.parameters(), lr=1e-4)
+    optimizer = optim.Adam(model.parameters(), lr=5e-5)
+    # optimizer = optim.Adam(model.parameters(), lr=5e-6)
     criterion = nn.MSELoss()
 
     # call train loop
     t0 = time.time()
-    trainLoop(model, criterion, optimizer, int(5e2))
+
+    trainLoop(model, criterion, optimizer, int(1.6e2))
     # trainPerElement(model, criterion, optimizer, int(25))
 
     print("training completed within {:.2f}s".format(time.time() - t0))
@@ -164,12 +189,9 @@ if __name__ == "__main__":
     figBeta.show()
 
     # test symplecticity
-    sym = torch.tensor([[0, 1, 0, 0], [-1, 0, 0, 0], [0, 0, 0, 1], [0, 0, -1, 0]], dtype=dtype)
-
     rMatrix = model.rMatrix()
-    res = lambda x: torch.matmul(x.transpose(1, 0), torch.matmul(sym, x)) - sym
-
-    print("sym penalty after training: {}".format(torch.norm(res(rMatrix))))
+    res = torch.matmul(rMatrix.transpose(1, 0), torch.matmul(sym, rMatrix)) - sym
+    print("sym penalty after training: {}".format(torch.norm(res)))
 
     print("transport matrix after training:")
     print(model.rMatrix())
@@ -190,3 +212,9 @@ if __name__ == "__main__":
     print("trained model tunes: {}".format(model.getTunes()))
     print("perturbed model tunes from Mad-X: {}".format(tools.madX.tune(perturbedModel.madX())))
     print("trained model tunes from Mad-X: {}".format(tools.madX.tune(model.madX())))
+
+    # fft
+    if dim == 6:
+        print("performing fft of trained model")
+        fft = tools.tuneFFT.getTuneChromaticity(model, turns=200, dtype=dtype, beam=beam)
+        print(fft)
