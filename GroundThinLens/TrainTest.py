@@ -1,3 +1,6 @@
+import sys
+sys.path.append("../")
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -80,7 +83,7 @@ if __name__ == "__main__":
     quadSliceMultiplicity = 1
     dtype = torch.double
     device = torch.device("cpu")
-    outputPerElement = False  # exceeds outputAtBPM
+    outputPerElement = True  # exceeds outputAtBPM
     outputAtBPM = True
 
     # set up models
@@ -88,7 +91,7 @@ if __name__ == "__main__":
     # perturbedModel = F0D0Model(k1=0.2, dim=dim, slices=slices, dtype=dtype)
 
     Lattice = SIS18_Lattice
-    model = Lattice(dim=dim, slices=slices, quadSliceMultiplicity=quadSliceMultiplicity, dtype=dtype, cellsIdentical=True).to(device)
+    model = Lattice(dim=dim, slices=slices, quadSliceMultiplicity=quadSliceMultiplicity, dtype=dtype, cellsIdentical=False).to(device)
 
     k1f = 3.29482e-01
     k1d = -4.73005e-01
@@ -103,8 +106,8 @@ if __name__ == "__main__":
         bunch = torch.tensor([[1e-3, 2e-3, 1e-3, 0], [-1e-3, 1e-3, 0, 1e-3]], dtype=dtype).to(device)
         label = perturbedModel(bunch, outputPerElement=outputPerElement, outputAtBPM=outputAtBPM).to(device)
     elif dim == 6:
-        beam = Beam(mass=18.798, energy=19.0, exn=1.258e-6, eyn=2.005e-6, sigt=0.01, sige=0.000, particles=50)
-        bunch = beam.bunch[:1].to(device)
+        beam = Beam(mass=18.798, energy=19.0, exn=1.258e-6, eyn=2.005e-6, sigt=0.01, sige=0.000, particles=500)
+        bunch = beam.bunch[:100].to(device)
         label = perturbedModel(bunch, outputPerElement=outputPerElement, outputAtBPM=outputAtBPM).to(device)
         print("bunch:")
         print(bunch)
@@ -112,13 +115,13 @@ if __name__ == "__main__":
     # initial tunes
     print("initial model tune from Mad-X: {}".format(tools.madX.tune(model.madX())))
 
-    # fft
-    if dim == 6:
-        print("performing fft of initial models")
-        fft = tools.tuneFFT.getTuneChromaticity(model, turns=200, dtype=dtype, beam=beam)
-        print("ideal model", fft)
-        fft = tools.tuneFFT.getTuneChromaticity(perturbedModel, turns=200, dtype=dtype, beam=beam)
-        print("perturbed model", fft)
+    # # fft
+    # if dim == 6:
+    #     print("performing fft of initial models")
+    #     fft = tools.tuneFFT.getTuneChromaticity(model, turns=200, dtype=dtype, beam=beam)
+    #     print("ideal model", fft)
+    #     fft = tools.tuneFFT.getTuneChromaticity(perturbedModel, turns=200, dtype=dtype, beam=beam)
+    #     print("perturbed model", fft)
 
 
     # plot initial trajectories
@@ -163,8 +166,8 @@ if __name__ == "__main__":
     # call train loop
     t0 = time.time()
 
-    trainLoop(model, criterion, optimizer, int(1.6e2))
-    # trainPerElement(model, criterion, optimizer, int(25))
+    trainLoop(model, criterion, optimizer, int(2.6e2))
+    # trainPerElement(model, criterion, optimizer, int(40))
 
     print("training completed within {:.2f}s".format(time.time() - t0))
 
@@ -187,6 +190,15 @@ if __name__ == "__main__":
     axesBeta[2].set_xlabel("pos / m")
 
     figBeta.show()
+
+    # look at quad weights
+    print("weights")
+    for m in model.modules():
+        if type(m) is Elements.Quadrupole:
+            for mod in m.modules():
+                if type(mod) is Maps.QuadKick:
+                    print(mod.weight)
+
 
     # test symplecticity
     rMatrix = model.rMatrix()
