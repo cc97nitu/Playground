@@ -76,7 +76,7 @@ def track(bunch: torch.tensor, sequence, slices: int = 0):
     for element in list(sis18.elements)[1:-1]:  # exclude 'start' and 'end' markers
         madx.command.observe(place=element.name)
 
-    madx.command.run(turns=1)
+    madx.call("../Lattice/SIS18_Lattice_minimal.seq")
     madx.command.endtrack()
 
     # merge tracking results

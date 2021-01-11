@@ -4,6 +4,7 @@ sys.path.append("../")
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.utils.data
 
 import ThinLens.Elements as Elements
 import ThinLens.Maps as Maps
@@ -24,18 +25,59 @@ def trainLoop(model, criterion, optimizer, epochs: int):
     # train loop
 
     for epoch in range(epochs):
-        optimizer.zero_grad()
+        for i, data in enumerate(trainLoader, 0):
+            bunch, label = data[0], data[1]
 
-        out = model(bunch, outputPerElement=outputPerElement, outputAtBPM=outputAtBPM)
+            optimizer.zero_grad()
 
-        # loss = criterion(out, label)  # full phase-space
-        loss = criterion(out[:, [0, 2], :], label[:, [0, 2], :])  # only x-, y-plane
+            out = model(bunch, outputPerElement=outputPerElement, outputAtBPM=outputAtBPM)
 
-        loss.backward()
-        optimizer.step()
+            # loss = criterion(out, label)  # full phase-space
+            loss = criterion(out[:, [0, 2], :], label[:, [0, 2], :])  # only x-, y-plane
 
-        if epoch % 20 == 19:
-            print(loss.item())
+            loss.backward()
+            optimizer.step()
+
+        # if epoch % 10 == 9:
+        #     print(loss.item())
+        print(loss.item())
+
+    return
+
+
+def trainPerCell(model, criterion, optimizer, epochs: int):
+    mapCount: int = 0
+
+    for cell in model.cells:
+        # current cell quads only
+        model.requires_grad_(False)
+        for element in cell:
+            if type(element) is Elements.Quadrupole:
+                element.requires_grad_(True)
+
+        # count model outputs up to current cell
+        if outputPerElement:
+            mapCount += len(cell)
+        else:
+            for element in cell:
+                if type(element) is Elements.Monitor:
+                    mapCount += 1
+
+        # train loop
+        for epoch in range(epochs):
+            optimizer.zero_grad()
+
+            out = model(bunch, outputPerElement=outputPerElement, outputAtBPM=outputAtBPM)
+
+            # loss = criterion(out, label)  # full phase-space
+            # loss = criterion(out[:, [0, 2], :], label[:, [0, 2], :])  # only x-, y-plane
+            loss = criterion(out[:, [0, 2], :mapCount + 1], label[:, [0, 2], :mapCount + 1])  # only x-, y-plane
+
+            loss.backward()
+            optimizer.step()
+
+            if epoch % 20 == 19:
+                print(loss.item())
 
     return
 
@@ -91,7 +133,10 @@ if __name__ == "__main__":
     # perturbedModel = F0D0Model(k1=0.2, dim=dim, slices=slices, dtype=dtype)
 
     Lattice = SIS18_Lattice
-    model = Lattice(dim=dim, slices=slices, quadSliceMultiplicity=quadSliceMultiplicity, dtype=dtype, cellsIdentical=False).to(device)
+
+    startK1f = 3.13391e-01
+    startK1d = -4.79047e-01
+    model = Lattice(k1f=startK1f, k1d=startK1d, dim=dim, slices=slices, quadSliceMultiplicity=quadSliceMultiplicity, dtype=dtype, cellsIdentical=False).to(device)
 
     k1f = 3.29482e-01
     k1d = -4.73005e-01
@@ -101,16 +146,23 @@ if __name__ == "__main__":
     model.requires_grad_(False)
     perturbedModel.requires_grad_(False)
 
+    # dump off
+    fileName = "/dev/shm/second.json"
+    with open(fileName, "w") as file:
+        model.dumpJSON(file)
+
     # train set
     if dim == 4:
         bunch = torch.tensor([[1e-3, 2e-3, 1e-3, 0], [-1e-3, 1e-3, 0, 1e-3]], dtype=dtype).to(device)
         label = perturbedModel(bunch, outputPerElement=outputPerElement, outputAtBPM=outputAtBPM).to(device)
     elif dim == 6:
         beam = Beam(mass=18.798, energy=19.0, exn=1.258e-6, eyn=2.005e-6, sigt=0.01, sige=0.000, particles=500)
-        bunch = beam.bunch[:100].to(device)
+        bunch = beam.bunch[:].to(device)
         label = perturbedModel(bunch, outputPerElement=outputPerElement, outputAtBPM=outputAtBPM).to(device)
-        print("bunch:")
-        print(bunch)
+
+    trainSet = torch.utils.data.TensorDataset(bunch, label)
+    trainLoader = torch.utils.data.DataLoader(trainSet, batch_size=25,
+                                              shuffle=True, num_workers=2)
 
     # initial tunes
     print("initial model tune from Mad-X: {}".format(tools.madX.tune(model.madX())))
@@ -122,7 +174,6 @@ if __name__ == "__main__":
     #     print("ideal model", fft)
     #     fft = tools.tuneFFT.getTuneChromaticity(perturbedModel, turns=200, dtype=dtype, beam=beam)
     #     print("perturbed model", fft)
-
 
     # plot initial trajectories
     figTrajectories, axesTrajectories = plt.subplots(3, sharex=True)
@@ -164,10 +215,12 @@ if __name__ == "__main__":
     criterion = nn.MSELoss()
 
     # call train loop
+    print("start training")
     t0 = time.time()
 
-    trainLoop(model, criterion, optimizer, int(2.6e2))
+    trainLoop(model, criterion, optimizer, int(1e1))
     # trainPerElement(model, criterion, optimizer, int(40))
+    # trainPerCell(model, criterion, optimizer, int(40))
 
     print("training completed within {:.2f}s".format(time.time() - t0))
 
@@ -225,8 +278,12 @@ if __name__ == "__main__":
     print("perturbed model tunes from Mad-X: {}".format(tools.madX.tune(perturbedModel.madX())))
     print("trained model tunes from Mad-X: {}".format(tools.madX.tune(model.madX())))
 
-    # fft
-    if dim == 6:
-        print("performing fft of trained model")
-        fft = tools.tuneFFT.getTuneChromaticity(model, turns=200, dtype=dtype, beam=beam)
-        print(fft)
+    # # fft
+    # if dim == 6:
+    #     print("performing fft of trained model")
+    #     fft = tools.tuneFFT.getTuneChromaticity(model, turns=200, dtype=dtype, beam=beam)
+    #     print(fft)
+
+    # dump off
+    with open(fileName, "w") as file:
+        model.dumpJSON(file)
