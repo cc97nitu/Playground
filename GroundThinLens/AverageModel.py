@@ -1,8 +1,11 @@
 import json
 import numpy as np
+import os
 
 # load models
-fileNames = ["/dev/shm/first.json", "/dev/shm/second.json"]
+# fileNames = ["/dev/shm/first.json", "/dev/shm/second.json"]
+fileNames = [file for file in os.scandir("AverageTrainResults/trainDump")]
+print(fileNames)
 
 models = list()
 for name in fileNames:

@@ -3,7 +3,7 @@ import time
 import torch
 import matplotlib.pyplot as plt
 
-from madX import twissTable
+from tools.madX import twissTable
 
 
 def track(model, bunch, turns: int):

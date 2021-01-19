@@ -85,14 +85,10 @@ class Beam(object):
 
 
 if __name__ == "__main__":
-    torch.set_printoptions(precision=4)
+    torch.set_printoptions(precision=2, sci_mode=True)
 
     beam = Beam(mass=18.798, energy=19.0, exn=1.258e-6, eyn=2.005e-6, sigt=0.01, sige=0.005, particles=int(1e1))
 
-    # update bunch
-    delta = beam.bunch[:, 6]
-    print(delta)
+    print(beam.bunch)
 
-    newBunch = beam.fromDelta(delta * 2)
-    print(beam.bunch - newBunch)
 

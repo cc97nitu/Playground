@@ -134,8 +134,8 @@ if __name__ == "__main__":
 
     Lattice = SIS18_Lattice
 
-    startK1f = 3.13391e-01
-    startK1d = -4.79047e-01
+    startK1f = 3.18468e-01
+    startK1d = -4.80320e-01
     model = Lattice(k1f=startK1f, k1d=startK1d, dim=dim, slices=slices, quadSliceMultiplicity=quadSliceMultiplicity, dtype=dtype, cellsIdentical=False).to(device)
 
     k1f = 3.29482e-01
@@ -147,7 +147,7 @@ if __name__ == "__main__":
     perturbedModel.requires_grad_(False)
 
     # dump off
-    fileName = "/dev/shm/second.json"
+    fileName = "/dev/shm/third.json"
     with open(fileName, "w") as file:
         model.dumpJSON(file)
 
@@ -183,7 +183,7 @@ if __name__ == "__main__":
     tools.plot.trajectories(axesTrajectories[1], tools.plot.track(perturbedModel, bunch, 1), perturbedModel)
     axesTrajectories[1].set_ylabel("perturbed")
 
-    # plot inital beta
+    # plot initial beta
     figBeta, axesBeta = plt.subplots(3, sharex=True)
     tools.plot.betaMadX(axesBeta[0], model.madX(), )
     axesBeta[0].set_ylabel("ideal")
@@ -218,7 +218,7 @@ if __name__ == "__main__":
     print("start training")
     t0 = time.time()
 
-    trainLoop(model, criterion, optimizer, int(1e1))
+    trainLoop(model, criterion, optimizer, int(5e1))
     # trainPerElement(model, criterion, optimizer, int(40))
     # trainPerCell(model, criterion, optimizer, int(40))
 
