@@ -1,0 +1,61 @@
+! ### define elements
+rbA: rbend,l:= 2.617993878 / 2,angle:= 0.2617993878 / 2,e1:= 0.1274090354,e2:= 0.0,hgap:= 0.035,type=b1;
+rbB: rbend,l:= 2.617993878 / 2,angle:= 0.2617993878 / 2,e1:= 0.0,e2:= 0.1274090354,hgap:= 0.035,type=b1;
+
+qs1f: quadrupole,l:= 1.04,k1:= iqf,type=qd1;
+qs2d: quadrupole,l:= 1.04,k1:= iqd,type=qd2;
+qs3t: quadrupole,l:= 0.4804,k1:= 2*iqf,type=qd3;
+
+ks1c: sextupole, l=0.32,k2:=ik2f;
+ks3c: sextupole, l=0.32,k2:=ik2d;
+
+hKick1: tkicker, l=0;
+hKick2: tkicker, l=0;
+vKick: tkicker, l=0;
+
+hMon: hmonitor, l=0.13275;
+vMon: vmonitor, l=0.13275;
+
+d1: DRIFT, L=0.2;
+d2: DRIFT, L=0.9700000000000002;
+d3a: DRIFT, L=6.345;
+d3b: DRIFT, L=0.175;
+d4: DRIFT, L=0.5999999999999979;
+d5a: DRIFT, L=0.195;
+d5b: DRIFT, L=0.195;
+d6a: DRIFT, L=0.3485;
+d6b: DRIFT, L=0.3308;
+
+SIS18_Cell: line= (d1,rbA,hKick1,rbB,d2,rbA,hKick2,rbB,d3a,ks1c,d3b,qs1f,vKick,d4,qs2d,d5a,ks3c,d5b,qs3t,d6a,hMon,vMon,d6b);
+
+SIS18: line= (SIS18_Cell,SIS18_Cell,SIS18_Cell,SIS18_Cell,SIS18_Cell,SIS18_Cell,SIS18_Cell,SIS18_Cell,SIS18_Cell,SIS18_Cell,SIS18_Cell,SIS18_Cell);
+
+!! ### sequence of single cell
+!SIS18_Cell: sequence, l=18.061187756000002, refer=entry;
+!	rbA, at=0.8544984695;
+!	rbB, at=2.1634954085;
+!endsequence;
+
+!! ### sequence of single cell
+!SIS18_Cell: sequence, l=18.061187756000002;
+!	rbA, at=0.8544984695;
+!!	hKick1, at=1.508996939;
+!	rbB, at=2.1634954085;
+!	rbA, at=4.4424923475;
+!!	hKick2, at=5.096990817;
+!	rbB, at=5.7514892865;
+!	ks1c, at=12.910987756;
+!	qs1f, at=13.765987756000001;
+!	vKick, at=14.285987756;
+!	qs2d, at=15.405987755999998;
+!	ks3c, at=16.280987756;
+!	qs3t, at=16.876187756;
+!	hMon, at=17.531262756;
+!	vMon, at=17.664012756;
+!endsequence;
+
+!! ### define whole ring
+!!SIS18: sequence, l=216.7342530719995;
+!SIS18: sequence, l=18.061187756000002;
+!	SIS18_Cell, at=9.030593878000001;
+!endsequence;

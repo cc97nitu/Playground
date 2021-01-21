@@ -3,6 +3,7 @@ import numpy as np
 import os
 
 # load models
+print(os.path.abspath("trainDump"))
 # fileNames = ["/dev/shm/first.json", "/dev/shm/second.json"]
 fileNames = [file for file in os.scandir("AverageTrainResults/trainDump")]
 print(fileNames)
