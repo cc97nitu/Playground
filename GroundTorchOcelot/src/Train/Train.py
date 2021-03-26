@@ -20,7 +20,7 @@ print("building model")
 dim = 6
 dtype = torch.double
 
-lattice = SIS18_Cell_minimal()
+lattice = SIS18_Lattice_minimal()
 model = LinearModel(lattice, dim, dtype=dtype)
 model.setTrainable("quadrupoles")
 model.to(device)

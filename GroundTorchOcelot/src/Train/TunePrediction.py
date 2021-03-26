@@ -26,7 +26,7 @@ print("running on {}".format(device))
 # create model of SIS18
 dim = 6
 
-lattice = SIS18_Lattice_minimal(k1f=3.29482e-01, k1d=-4.73005e-01)
+lattice = SIS18_Lattice(k1f=0.3217252108633675, k1d=-0.49177734861791)
 model = LinearModel(lattice, dim, dtype)
 model = model.to(device)
 model.setTrainable("quadrupoles")
@@ -40,7 +40,7 @@ for i in range(len(lattice.sequence)):
         idxFirstQuad = i
 
 # create model of perturbed accelerator
-perturbedLattice = SIS18_Lattice_minimal(k1f=3.29482e-01, k1d=-4.73005e-01)
+perturbedLattice = SIS18_Lattice()
 
 perturbedLattice.sequence[idxFirstQuad].k1 *= 0.98
 perturbedLattice.update_transfer_maps()
@@ -74,6 +74,7 @@ tools.plot.trajectories(axes[1], tools.plot.track(perturbedModel, bunch, 1), per
 axes[1].set_ylabel("perturbed")
 
 # build training set from perturbed model
+outputPerElement = False
 outputAtBPM = True
 
 with torch.no_grad():
@@ -105,7 +106,7 @@ for epoch in range(2500):
 
         # forward, backward
         output = model(inputs, outputPerElement=outputPerElement, outputAtBPM=outputAtBPM)
-        loss = criterion(output, labels) + 10 * model.symplecticRegularization()
+        loss = criterion(output, labels) +  model.symplecticRegularization()
         # loss = criterion(output, labels) + model.symplecticRegularization()
         # loss = criterion(output, labels)
         loss.backward()

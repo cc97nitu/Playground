@@ -121,7 +121,7 @@ if __name__ == "__main__":
     # torch.set_printoptions(precision=4, sci_mode=False)
 
     dim = 6
-    slices = 10
+    slices = 4
     quadSliceMultiplicity = 1
     dtype = torch.double
     device = torch.device("cpu")
@@ -134,20 +134,19 @@ if __name__ == "__main__":
 
     Lattice = SIS18_Lattice
 
-    startK1f = 3.13391e-01
-    startK1d = -4.79047e-01
+    startK1f = 0.3217252108633675
+    startK1d = -0.49177734861791
     model = Lattice(k1f=startK1f, k1d=startK1d, dim=dim, slices=slices, quadSliceMultiplicity=quadSliceMultiplicity, dtype=dtype, cellsIdentical=False).to(device)
 
-    k1f = 3.29482e-01
-    k1d = -4.73005e-01
-    perturbedModel = Lattice(k1f=k1f, k1d=k1d, dim=dim, slices=slices, quadSliceMultiplicity=quadSliceMultiplicity,
+
+    perturbedModel = Lattice(dim=dim, slices=slices, quadSliceMultiplicity=quadSliceMultiplicity,
                              dtype=dtype).to(device)
 
     model.requires_grad_(False)
     perturbedModel.requires_grad_(False)
 
     # dump off
-    fileName = "/dev/shm/second.json"
+    fileName = "/dev/shm/third.json"
     with open(fileName, "w") as file:
         model.dumpJSON(file)
 
@@ -202,15 +201,18 @@ if __name__ == "__main__":
     print("sym penalty before training: {}".format(torch.norm(res)))
 
     # activate gradients on kick maps
-    for m in model.modules():
-        if type(m) is Elements.Quadrupole:
-            for mod in m.modules():
-                if type(mod) is Maps.QuadKick:
-                    mod.requires_grad_(True)
+    for element in model.elements:
+        if type(element) is Elements.Quadrupole:
+            element.k1n.requires_grad_(True)
+
+            # for m in element.maps:
+            #     if type(m) is Maps.DriftMap:
+            #         continue
+            #     m.weight.requires_grad_(True)
 
     # set up optimizer
-    # optimizer = optim.Adam(model.parameters(), lr=1e-4)
-    optimizer = optim.Adam(model.parameters(), lr=5e-5)
+    optimizer = optim.Adam(model.parameters(), lr=5e-3)
+    # optimizer = optim.Adam(model.parameters(), lr=5e-5)
     # optimizer = optim.Adam(model.parameters(), lr=5e-6)
     criterion = nn.MSELoss()
 

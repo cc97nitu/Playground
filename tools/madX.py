@@ -95,9 +95,13 @@ def track(bunch: torch.tensor, sequence, slices: int = 0):
 
 
 if __name__ == "__main__":
-    from ThinLens.Models import SIS18_Cell_minimal
+    from ThinLens.Models import SIS18_Lattice, SIS18_Lattice_minimal
+
+    Lattice = lambda: SIS18_Lattice(slices=4)
+    # Lattice = lambda: SIS18_Lattice_minimal(slices=4)
 
     # track a bunch with Mad-X
-    bunch = torch.tensor([[-1e-2, 0, 2e-3, 0], [1e-3, -1e-3, 1e-2, 0], [0,0,0,0]])
-    trackResults = track(bunch, SIS18_Cell_minimal().madX())
-    print(trackResults)
+    print("tunes: {}".format(tune(Lattice().madX())))
+    print("thin-multipole tunes: {}".format(tune(Lattice().thinMultipoleMadX())))
+
+
