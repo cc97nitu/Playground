@@ -30,7 +30,7 @@ def track(model, bunch, turns: int):
     return trackResults
 
 
-def trajectories(ax: plt.axes, trackResults, lattice):
+def trajectories(ax: plt.axes, trackResults, lattice, plane: str = "x"):
     """Plot individual trajectories."""
     trackResults = trackResults.to("cpu")
 
@@ -38,8 +38,12 @@ def trajectories(ax: plt.axes, trackResults, lattice):
            for i in range(trackResults.size(2))]
 
     for particle in trackResults:
-        # x-coord
-        ax.plot(pos, particle[0])
+        if plane == "x":
+            ax.plot(pos, particle[0])
+        elif plane == "y":
+            ax.plot(pos, particle[2])
+        else:
+            raise ValueError("invalid plane choice")
 
     return
 

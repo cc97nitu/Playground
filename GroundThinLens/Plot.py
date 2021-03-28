@@ -11,7 +11,7 @@ if __name__ == "__main__":
 
     # create model of SIS18
     print("building model")
-    dim = 4
+    dim = 6
     dtype = torch.float32
     model = SIS18_Lattice_minimal(dim=dim, dtype=dtype, )
     model.logElementPositions()
