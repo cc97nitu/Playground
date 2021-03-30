@@ -134,13 +134,9 @@ if __name__ == "__main__":
 
     Lattice = SIS18_Lattice
 
-<<<<<<< HEAD
-    startK1f = 3.18468e-01
-    startK1d = -4.80320e-01
-=======
     startK1f = 0.3217252108633675
     startK1d = -0.49177734861791
->>>>>>> a92fecf665033427291e2e8b67ae788f04132016
+
     model = Lattice(k1f=startK1f, k1d=startK1d, dim=dim, slices=slices, quadSliceMultiplicity=quadSliceMultiplicity, dtype=dtype, cellsIdentical=False).to(device)
 
 
